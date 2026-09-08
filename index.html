@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#173B6C">
-  <title>文化祭 QRコード読取</title>
+  <title>郁文館夢学園 2026年度 郁秋祭｜QRコード読取</title>
   <style>
     :root{--blue:#173B6C;--pale:#EAF1F8;--text:#172033;--muted:#64748B;--danger:#B42318;--ok:#067647}
     *{box-sizing:border-box}
@@ -33,7 +33,7 @@
 <body>
 <div class="shell">
   <header>
-    <div class="brand"><small>学校文化祭</small><h1>QRコード読取</h1></div>
+    <div class="brand"><small id="scannerSchool">郁文館夢学園</small><h1><span id="scannerEvent">2026年度 郁秋祭</span><br>QRコード読取</h1></div>
     <img src="logo.png" class="logo" alt="学校ロゴ" onerror="this.style.display='none'">
   </header>
   <main>
@@ -55,11 +55,20 @@
 <script>
 const params = new URLSearchParams(location.search);
 const day = params.get('day');
-const returnUrl = params.get('return');
-const validReturn = returnUrl && /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(?:\?|$)/.test(returnUrl);
+const schoolName = params.get('school') || '郁文館夢学園';
+const eventName = params.get('event') || '2026年度 郁秋祭';
+
+document.getElementById('scannerSchool').textContent = schoolName;
+document.getElementById('scannerEvent').textContent = eventName;
+document.title = schoolName + ' ' + eventName + '｜QRコード読取';
+
+// この受付アプリ専用の職員用戻り先URL。
+// Apps Script側から戻り先URLを受け取らず、ここで固定することで
+// /exec・/dev・キャッシュ等によるURL判定の不一致を防ぐ。
+const STAFF_URL = 'https://script.google.com/macros/s/AKfycbxfBbYy3qyHQZCMCwzo8VpODZNosPd3wLSdzr6TJybK7XC3eyZSYwfxagbSGtTcJTmn/exec?page=staff';
 
 document.getElementById('dayLabel').textContent = day === '1' ? '1日目' : day === '2' ? '2日目' : '日程未指定';
-document.getElementById('backBtn').onclick = () => { if (validReturn) location.href = returnUrl; else history.back(); };
+document.getElementById('backBtn').onclick = () => { location.replace(STAFF_URL); };
 
 const startBtn = document.getElementById('startBtn');
 const message = document.getElementById('message');
@@ -122,16 +131,17 @@ function handleDecoded(text){
   if (locked) return;
   const value = String(text || '').trim();
   if (!/^SCHOOL-FESTIVAL:[a-fA-F0-9]{64}$/.test(value)){
-    setError('文化祭受付用のQRコードではありません。');
+    setError('この受付で使用できるQRコードではありません。');
     return;
   }
-  if (!validReturn || !(day === '1' || day === '2')){
-    setError('受付画面への戻り先または日程が正しくありません。');
+  if (!(day === '1' || day === '2')){
+    setError('受付日程が正しくありません。職員用受付画面から日程を選び直してください。');
     return;
   }
   locked = true;
-  const sep = returnUrl.includes('?') ? '&' : '?';
-  const url = returnUrl + sep + 'day=' + encodeURIComponent(day) + '&qr=' + encodeURIComponent(value);
+  const url = STAFF_URL
+    + '&day=' + encodeURIComponent(day)
+    + '&qr=' + encodeURIComponent(value);
   Promise.resolve(stopScanner()).finally(()=>location.replace(url));
 }
 
