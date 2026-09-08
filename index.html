@@ -41,8 +41,8 @@
     <section class="card">
       <div id="dayLabel" class="day"></div>
       <div id="reader"></div>
-      <div id="message" class="msg">カメラを準備しています。</div>
-      <button id="startBtn" class="primary" type="button">カメラを起動</button>
+      <div id="message" class="msg">読み取り機能を準備しています。</div>
+      <button id="startBtn" class="primary" type="button" disabled>カメラを起動</button>
       <div id="diag" class="diag"></div>
       <div class="file">
         <label><strong>カメラが使えない場合</strong><br><small>QRコード画像を選択して読み取れます。</small></label>
@@ -67,15 +67,16 @@ const diag = document.getElementById('diag');
 let scanner = null;
 let locked = false;
 let starting = false;
-let libraryPromise = null;
+let libraryReady = false;
 
 function escapeHtml(s){return String(s ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function setError(title, err){
   const detail = err ? `${err.name || 'Error'}: ${err.message || String(err)}` : '';
-  message.innerHTML = `<div class="error"><strong>${escapeHtml(title)}</strong><br>「カメラを起動」をもう一度押してください。</div>`;
+  message.innerHTML = `<div class="error"><strong>${escapeHtml(title)}</strong><br>ブラウザのカメラ許可をご確認のうえ、もう一度押してください。</div>`;
   diag.textContent = detail;
 }
 function setStatus(text){ message.innerHTML = `<div class="ok">${escapeHtml(text)}</div>`; }
+function setInfo(text){ message.textContent = text; }
 
 function loadScript(src, timeoutMs = 7000){
   return new Promise((resolve,reject)=>{
@@ -89,48 +90,32 @@ function loadScript(src, timeoutMs = 7000){
   });
 }
 
-async function ensureLibrary(){
-  if (window.Html5Qrcode) return;
-  if (libraryPromise) return libraryPromise;
-  libraryPromise = (async()=>{
-    const sources = [
-      './html5-qrcode.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js',
-      'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
-      'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
-    ];
-    let lastErr;
-    for (const src of sources){
-      try{
-        await loadScript(src);
-        if (window.Html5Qrcode) return;
-      }catch(e){ lastErr=e; }
-    }
-    throw lastErr || new Error('QR読取ライブラリを読み込めませんでした。');
-  })();
-  return libraryPromise;
+async function prepareLibrary(){
+  if (window.Html5Qrcode){ libraryReady=true; startBtn.disabled=false; setInfo('準備完了です。「カメラを起動」を押してください。'); return; }
+  const sources = [
+    './html5-qrcode.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+  ];
+  let lastErr;
+  for (const src of sources){
+    try{
+      await loadScript(src);
+      if (window.Html5Qrcode){
+        libraryReady=true;
+        startBtn.disabled=false;
+        setInfo('準備完了です。「カメラを起動」を押してください。');
+        return;
+      }
+    }catch(e){ lastErr=e; }
+  }
+  setError('QR読取ライブラリを読み込めませんでした。', lastErr);
 }
 
 async function stopScanner(){
   if (!scanner) return;
   try { if (scanner.isScanning) await scanner.stop(); } catch(_e){}
-}
-
-async function requestCameraOnce(){
-  if (!window.isSecureContext) throw new Error('HTTPS接続ではありません。');
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('このブラウザではカメラAPIを利用できません。');
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio:false,
-    video:{ facingMode:{ ideal:'environment' } }
-  });
-  stream.getTracks().forEach(t=>t.stop());
-}
-
-async function pickCamera(){
-  const devices = await Html5Qrcode.getCameras();
-  if (!devices || !devices.length) return { facingMode:'environment' };
-  const rear = devices.find(d => /back|rear|environment|背面|外向き/i.test(d.label || ''));
-  return (rear || devices[devices.length - 1]).id;
 }
 
 function handleDecoded(text){
@@ -150,35 +135,36 @@ function handleDecoded(text){
   Promise.resolve(stopScanner()).finally(()=>location.replace(url));
 }
 
-async function startCamera(){
-  if (starting || locked) return;
+function startCamera(){
+  if (starting || locked || !libraryReady) return;
+  if (!window.isSecureContext){ setError('HTTPS接続ではありません。', new Error('SecureContext required')); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ setError('このブラウザではカメラAPIを利用できません。'); return; }
+
   starting = true;
   startBtn.disabled = true;
   startBtn.textContent = 'カメラを起動しています…';
   diag.textContent = '';
-  try{
-    await ensureLibrary();
-    await requestCameraOnce();
-    await stopScanner();
-    document.getElementById('reader').innerHTML='';
-    scanner = new Html5Qrcode('reader');
-    const camera = await pickCamera();
-    await scanner.start(
-      camera,
-      { fps:10, qrbox:{width:260,height:260}, aspectRatio:1.0 },
-      decoded => handleDecoded(decoded),
-      () => {}
-    );
+  document.getElementById('reader').innerHTML='';
+  scanner = new Html5Qrcode('reader');
+
+  // 重要: ユーザーのタップ直後に、カメラ要求を1回だけ行う。
+  // 事前の getUserMedia() / getCameras() / 自動起動は行わない。
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps:10, qrbox:{width:260,height:260}, aspectRatio:1.0 },
+    decoded => handleDecoded(decoded),
+    () => {}
+  ).then(()=>{
     setStatus('カメラを起動しました。QRコードを枠内に合わせてください。');
     startBtn.style.display='none';
-  }catch(e){
+  }).catch(e=>{
     console.error(e);
     setError('カメラを開始できませんでした。', e);
     startBtn.disabled=false;
     startBtn.textContent='カメラを起動';
-  }finally{
+  }).finally(()=>{
     starting=false;
-  }
+  });
 }
 
 startBtn.addEventListener('click', startCamera);
@@ -187,7 +173,7 @@ document.getElementById('fileInput').addEventListener('change', async e=>{
   const file=e.target.files && e.target.files[0];
   if(!file)return;
   try{
-    await ensureLibrary();
+    if (!libraryReady) throw new Error('QR読取機能の準備が完了していません。');
     await stopScanner();
     document.getElementById('reader').innerHTML='';
     scanner = new Html5Qrcode('reader');
@@ -196,10 +182,8 @@ document.getElementById('fileInput').addEventListener('change', async e=>{
   }catch(err){ setError('画像からQRコードを読み取れませんでした。', err); }
 });
 
-// 権限済み端末では自動起動を試す。失敗してもボタン操作で再試行できる。
-window.addEventListener('load', ()=>{
-  setTimeout(()=>startCamera(), 250);
-});
+// ライブラリだけ先に読み込む。カメラは必ずユーザー操作で起動する。
+window.addEventListener('load', prepareLibrary);
 </script>
 </body>
 </html>
