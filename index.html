@@ -3,30 +3,203 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#173B6C">
   <title>文化祭 QRコード読取</title>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
-    :root{--blue:#173B6C;--pale:#EAF1F8;--text:#172033;--muted:#64748B;--danger:#B42318}*{box-sizing:border-box}body{margin:0;background:#F4F7FA;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif}.shell{max-width:820px;min-height:100vh;margin:auto;background:#fff}header{min-height:92px;padding:18px 24px;border-bottom:4px solid var(--blue);display:flex;justify-content:space-between;align-items:center}.brand small{color:var(--muted);font-weight:700}.brand h1{font-size:21px;margin:3px 0}.logo{width:108px;height:56px;object-fit:contain}main{padding:24px}.step{font-size:13px;font-weight:900;color:var(--blue);margin-bottom:8px}.card{border:1px solid #D9E2EC;border-radius:16px;padding:20px}.day{display:inline-block;background:var(--pale);color:var(--blue);font-weight:900;border-radius:999px;padding:7px 12px;margin-bottom:14px}#reader{width:100%;overflow:hidden;border-radius:12px}.msg{margin-top:14px;line-height:1.6;color:var(--muted)}.error{color:var(--danger);background:#FFF1F0;border:1px solid #FFD1CC;padding:12px;border-radius:9px}.back{width:100%;min-height:48px;background:#fff;border:1px solid var(--blue);color:var(--blue);border-radius:10px;font-weight:800;margin-top:14px;cursor:pointer}.file{margin-top:14px;padding-top:14px;border-top:1px solid #E2E8F0}.file input{width:100%}@media(max-width:600px){header{padding:14px 16px}.logo{width:86px;height:48px}main{padding:16px}.card{padding:14px}}
+    :root{--blue:#173B6C;--pale:#EAF1F8;--text:#172033;--muted:#64748B;--danger:#B42318;--ok:#067647}
+    *{box-sizing:border-box}
+    body{margin:0;background:#F4F7FA;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif}
+    .shell{max-width:820px;min-height:100vh;margin:auto;background:#fff}
+    header{min-height:92px;padding:18px 24px;border-bottom:4px solid var(--blue);display:flex;justify-content:space-between;align-items:center}
+    .brand small{color:var(--muted);font-weight:700}.brand h1{font-size:21px;margin:3px 0}
+    .logo{width:108px;height:56px;object-fit:contain}
+    main{padding:24px}.step{font-size:13px;font-weight:900;color:var(--blue);margin-bottom:8px}
+    .card{border:1px solid #D9E2EC;border-radius:16px;padding:20px}
+    .day{display:inline-block;background:var(--pale);color:var(--blue);font-weight:900;border-radius:999px;padding:7px 12px;margin-bottom:14px}
+    #reader{width:100%;overflow:hidden;border-radius:12px;background:#0B1220;min-height:260px;display:flex;align-items:center;justify-content:center}
+    #reader:empty::before{content:"カメラ待機中";color:#fff;font-weight:800;opacity:.75}
+    .msg{margin-top:14px;line-height:1.6;color:var(--muted)}
+    .error{color:var(--danger);background:#FFF1F0;border:1px solid #FFD1CC;padding:12px;border-radius:9px}
+    .ok{color:var(--ok);background:#ECFDF3;border:1px solid #ABEFC6;padding:12px;border-radius:9px}
+    .primary,.back{width:100%;min-height:52px;border-radius:10px;font-weight:900;cursor:pointer;font-size:16px}
+    .primary{background:var(--blue);border:1px solid var(--blue);color:#fff;margin-top:14px}
+    .primary:disabled{opacity:.55;cursor:wait}
+    .back{background:#fff;border:1px solid var(--blue);color:var(--blue);margin-top:12px}
+    .file{margin-top:14px;padding-top:14px;border-top:1px solid #E2E8F0}.file input{width:100%;margin-top:8px}
+    .diag{margin-top:10px;font-size:12px;color:#64748B;word-break:break-word}
+    @media(max-width:600px){header{padding:14px 16px}.logo{width:86px;height:48px}main{padding:16px}.card{padding:14px}}
   </style>
 </head>
 <body>
 <div class="shell">
-  <header><div class="brand"><small>学校文化祭</small><h1>QRコード読取</h1></div><img src="logo.png" class="logo" alt="学校ロゴ" onerror="this.style.display='none'" /></header>
-  <main><div class="step">STEP 2 / 5</div><section class="card"><div id="dayLabel" class="day"></div><div id="reader"></div><div id="message" class="msg">QRコードをカメラ枠内に合わせてください。</div><div class="file"><label><strong>カメラが使えない場合</strong><br><small>QRコード画像を選択して読み取れます。</small></label><input id="fileInput" type="file" accept="image/*"></div><button id="backBtn" class="back">日程選択に戻る</button></section></main>
+  <header>
+    <div class="brand"><small>学校文化祭</small><h1>QRコード読取</h1></div>
+    <img src="logo.png" class="logo" alt="学校ロゴ" onerror="this.style.display='none'">
+  </header>
+  <main>
+    <div class="step">STEP 2 / 5</div>
+    <section class="card">
+      <div id="dayLabel" class="day"></div>
+      <div id="reader"></div>
+      <div id="message" class="msg">カメラを準備しています。</div>
+      <button id="startBtn" class="primary" type="button">カメラを起動</button>
+      <div id="diag" class="diag"></div>
+      <div class="file">
+        <label><strong>カメラが使えない場合</strong><br><small>QRコード画像を選択して読み取れます。</small></label>
+        <input id="fileInput" type="file" accept="image/*">
+      </div>
+      <button id="backBtn" class="back" type="button">日程選択に戻る</button>
+    </section>
+  </main>
 </div>
 <script>
-const params=new URLSearchParams(location.search);const day=params.get('day');const returnUrl=params.get('return');
-const validReturn=returnUrl && /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(?:\?|$)/.test(returnUrl);
-document.getElementById('dayLabel').textContent=day==='1'?'1日目':day==='2'?'2日目':'日程未指定';
-document.getElementById('backBtn').onclick=()=>{if(validReturn)location.href=returnUrl;else history.back();};
-let scanner=null,locked=false;
-function fail(msg){document.getElementById('message').innerHTML='<div class="error">'+escapeHtml(msg)+'</div>';}
-function handleDecoded(text){if(locked)return;if(!/^SCHOOL-FESTIVAL:[a-fA-F0-9]{64}$/.test(String(text||'').trim())){fail('文化祭受付用のQRコードではありません。');return;}if(!validReturn||!(day==='1'||day==='2')){fail('受付画面への戻り先または日程が正しくありません。');return;}locked=true;const sep=returnUrl.includes('?')?'&':'?';const url=returnUrl+sep+'day='+encodeURIComponent(day)+'&qr='+encodeURIComponent(String(text).trim());Promise.resolve(scanner&&scanner.stop?scanner.stop():null).catch(()=>{}).finally(()=>location.replace(url));}
-async function start(){try{scanner=new Html5Qrcode('reader');await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:260},aspectRatio:1.0},decoded=>handleDecoded(decoded),()=>{});}catch(e){fail('カメラを開始できません。ブラウザのカメラ許可をご確認いただくか、下の「QRコード画像を選択」をご利用ください。');}}
-const fileInput=document.getElementById('fileInput');fileInput.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{if(!scanner)scanner=new Html5Qrcode('reader');try{await scanner.stop();}catch(_e){}const decoded=await scanner.scanFile(file,true);handleDecoded(decoded);}catch(err){fail('画像からQRコードを読み取れませんでした。');}});
-function escapeHtml(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-window.addEventListener('DOMContentLoaded', start);
+const params = new URLSearchParams(location.search);
+const day = params.get('day');
+const returnUrl = params.get('return');
+const validReturn = returnUrl && /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(?:\?|$)/.test(returnUrl);
+
+document.getElementById('dayLabel').textContent = day === '1' ? '1日目' : day === '2' ? '2日目' : '日程未指定';
+document.getElementById('backBtn').onclick = () => { if (validReturn) location.href = returnUrl; else history.back(); };
+
+const startBtn = document.getElementById('startBtn');
+const message = document.getElementById('message');
+const diag = document.getElementById('diag');
+let scanner = null;
+let locked = false;
+let starting = false;
+let libraryPromise = null;
+
+function escapeHtml(s){return String(s ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function setError(title, err){
+  const detail = err ? `${err.name || 'Error'}: ${err.message || String(err)}` : '';
+  message.innerHTML = `<div class="error"><strong>${escapeHtml(title)}</strong><br>「カメラを起動」をもう一度押してください。</div>`;
+  diag.textContent = detail;
+}
+function setStatus(text){ message.innerHTML = `<div class="ok">${escapeHtml(text)}</div>`; }
+
+function loadScript(src, timeoutMs = 7000){
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    let done=false;
+    const timer=setTimeout(()=>{if(done)return;done=true;s.remove();reject(new Error('読み込みタイムアウト: '+src));},timeoutMs);
+    s.src=src; s.async=true;
+    s.onload=()=>{if(done)return;done=true;clearTimeout(timer);resolve();};
+    s.onerror=()=>{if(done)return;done=true;clearTimeout(timer);reject(new Error('読み込み失敗: '+src));};
+    document.head.appendChild(s);
+  });
+}
+
+async function ensureLibrary(){
+  if (window.Html5Qrcode) return;
+  if (libraryPromise) return libraryPromise;
+  libraryPromise = (async()=>{
+    const sources = [
+      './html5-qrcode.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js',
+      'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+      'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+    ];
+    let lastErr;
+    for (const src of sources){
+      try{
+        await loadScript(src);
+        if (window.Html5Qrcode) return;
+      }catch(e){ lastErr=e; }
+    }
+    throw lastErr || new Error('QR読取ライブラリを読み込めませんでした。');
+  })();
+  return libraryPromise;
+}
+
+async function stopScanner(){
+  if (!scanner) return;
+  try { if (scanner.isScanning) await scanner.stop(); } catch(_e){}
+}
+
+async function requestCameraOnce(){
+  if (!window.isSecureContext) throw new Error('HTTPS接続ではありません。');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('このブラウザではカメラAPIを利用できません。');
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio:false,
+    video:{ facingMode:{ ideal:'environment' } }
+  });
+  stream.getTracks().forEach(t=>t.stop());
+}
+
+async function pickCamera(){
+  const devices = await Html5Qrcode.getCameras();
+  if (!devices || !devices.length) return { facingMode:'environment' };
+  const rear = devices.find(d => /back|rear|environment|背面|外向き/i.test(d.label || ''));
+  return (rear || devices[devices.length - 1]).id;
+}
+
+function handleDecoded(text){
+  if (locked) return;
+  const value = String(text || '').trim();
+  if (!/^SCHOOL-FESTIVAL:[a-fA-F0-9]{64}$/.test(value)){
+    setError('文化祭受付用のQRコードではありません。');
+    return;
+  }
+  if (!validReturn || !(day === '1' || day === '2')){
+    setError('受付画面への戻り先または日程が正しくありません。');
+    return;
+  }
+  locked = true;
+  const sep = returnUrl.includes('?') ? '&' : '?';
+  const url = returnUrl + sep + 'day=' + encodeURIComponent(day) + '&qr=' + encodeURIComponent(value);
+  Promise.resolve(stopScanner()).finally(()=>location.replace(url));
+}
+
+async function startCamera(){
+  if (starting || locked) return;
+  starting = true;
+  startBtn.disabled = true;
+  startBtn.textContent = 'カメラを起動しています…';
+  diag.textContent = '';
+  try{
+    await ensureLibrary();
+    await requestCameraOnce();
+    await stopScanner();
+    document.getElementById('reader').innerHTML='';
+    scanner = new Html5Qrcode('reader');
+    const camera = await pickCamera();
+    await scanner.start(
+      camera,
+      { fps:10, qrbox:{width:260,height:260}, aspectRatio:1.0 },
+      decoded => handleDecoded(decoded),
+      () => {}
+    );
+    setStatus('カメラを起動しました。QRコードを枠内に合わせてください。');
+    startBtn.style.display='none';
+  }catch(e){
+    console.error(e);
+    setError('カメラを開始できませんでした。', e);
+    startBtn.disabled=false;
+    startBtn.textContent='カメラを起動';
+  }finally{
+    starting=false;
+  }
+}
+
+startBtn.addEventListener('click', startCamera);
+
+document.getElementById('fileInput').addEventListener('change', async e=>{
+  const file=e.target.files && e.target.files[0];
+  if(!file)return;
+  try{
+    await ensureLibrary();
+    await stopScanner();
+    document.getElementById('reader').innerHTML='';
+    scanner = new Html5Qrcode('reader');
+    const decoded = await scanner.scanFile(file, true);
+    handleDecoded(decoded);
+  }catch(err){ setError('画像からQRコードを読み取れませんでした。', err); }
+});
+
+// 権限済み端末では自動起動を試す。失敗してもボタン操作で再試行できる。
+window.addEventListener('load', ()=>{
+  setTimeout(()=>startCamera(), 250);
+});
 </script>
 </body>
 </html>
