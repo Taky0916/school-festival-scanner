@@ -67,7 +67,10 @@ document.title = schoolName + ' ' + eventName + '｜QRコード読取';
 // /exec・/dev・キャッシュ等によるURL判定の不一致を防ぐ。
 const STAFF_URL = 'https://script.google.com/macros/s/AKfycbxfBbYy3qyHQZCMCwzo8VpODZNosPd3wLSdzr6TJybK7XC3eyZSYwfxagbSGtTcJTmn/exec?page=staff';
 
-document.getElementById('dayLabel').textContent = day === '1' ? '1日目' : day === '2' ? '2日目' : '日程未指定';
+const requestedDayLabel = params.get('dayLabel');
+document.getElementById('dayLabel').textContent =
+  requestedDayLabel ||
+  (day === '1' ? '1日目 9月26日(土)' : day === '2' ? '2日目 9月27日(日)' : '日程未指定');
 document.getElementById('backBtn').onclick = () => { location.replace(STAFF_URL); };
 
 const startBtn = document.getElementById('startBtn');
